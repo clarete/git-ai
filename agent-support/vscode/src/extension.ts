@@ -8,7 +8,7 @@ import { detectIDEHost, IDEHostKindVSCode } from "./utils/host-kind";
 import { AITabEditManager } from "./ai-tab-edit-manager";
 import { Config } from "./utils/config";
 import { BlameLensManager, registerBlameLensCommands } from "./blame-lens-manager";
-import { initBinaryResolver } from "./utils/binary-path";
+import { initBinaryResolver, resetGitAiBinaryCache } from "./utils/binary-path";
 import { KnownHumanCheckpointManager } from "./known-human-checkpoint-manager";
 
 function getDistinctId(): string {
@@ -24,7 +24,6 @@ export function activate(context: vscode.ExtensionContext) {
 
   // In dev mode, resolve git-ai binary via login shell (debug host has stripped PATH)
   initBinaryResolver(context.extensionMode);
-
   const ideHostCfg = detectIDEHost();
 
   // Initialize PostHog and emit startup event
@@ -44,6 +43,14 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   const aiEditManager = new AIEditManager(context);
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("gitai.binaryPath")) {
+        resetGitAiBinaryCache();
+        aiEditManager.resetGitAiCheckCache();
+      }
+    })
+  );
 
   const knownHumanManager = new KnownHumanCheckpointManager(
     vscode.version,
